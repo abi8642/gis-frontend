@@ -9,7 +9,7 @@ import { Vector as VectorLayer } from "ol/layer";
 import { Vector as VectorSource } from "ol/source";
 import { Feature } from "ol";
 import { Point } from "ol/geom";
-import { Style, Circle, Fill, Stroke } from "ol/style";
+import { Style, Circle, Fill, Stroke, Icon } from "ol/style";
 import axios from "axios";
 import { ToastContainer, toast } from "react-toastify";
 
@@ -60,13 +60,14 @@ const OpenLayersMap = () => {
       const lonLat = toLonLat(coordinate);
       setSelectedCoordinate(lonLat);
 
-      if (clickedButtonRef.current == "add") {
+      if (clickedButtonRef.current === "add") {
         setIsShowDataModalOpen(true);
-      } else if (clickedButtonRef.current == "nearby") {
+      } else if (clickedButtonRef.current === "nearby") {
         setIsShowDataModalOpen(true);
-      } else if (clickedButtonRef.current == "nearest") {
+      } else if (clickedButtonRef.current === "nearest") {
         await fetchNearestPlace(lonLat[1], lonLat[0]);
-      } else if (clickedButtonRef.current == "distance") {
+      } else if (clickedButtonRef.current === "distance") {
+        pinLocationWithImage(lonLat[1], lonLat[0]);
         setSelectedPoints((prevPoints) => {
           const newPoints = [...prevPoints, lonLat];
           if (newPoints.length == 1)
@@ -86,7 +87,7 @@ const OpenLayersMap = () => {
       }
     });
 
-    return () => initialMap.setTarget(null);
+    return () => initialMap.dispose();
   }, []);
 
   useEffect(() => {
@@ -123,13 +124,30 @@ const OpenLayersMap = () => {
   };
 
   const handleAddAction = async () => {
-    const name = placeName;
-    const type = placeType;
-    if (name && type) {
-      pinLocation(name, type, selectedCoordinate[1], selectedCoordinate[0]);
-      addLocation(name, type, selectedCoordinate[1], selectedCoordinate[0]);
-    } else {
-      notify("Name and Type both fields are required");
+    if (!placeName || !placeType || !selectedCoordinate) {
+      notify("Name, Type, and a valid location are required");
+      return;
+    }
+
+    try {
+      await addLocation(
+        placeName,
+        placeType,
+        selectedCoordinate[1],
+        selectedCoordinate[0]
+      );
+      pinLocation(
+        placeName,
+        placeType,
+        selectedCoordinate[1],
+        selectedCoordinate[0]
+      );
+      setIsShowDataModalOpen(false);
+      setPlaceName("");
+      setPlaceType("");
+    } catch (error) {
+      console.error("Error adding location:", error);
+      notify("Failed to create place");
     }
   };
 
@@ -160,6 +178,33 @@ const OpenLayersMap = () => {
     );
 
     vectorSource.addFeature(feature);
+  };
+
+  const pinLocationWithImage = (lat, lon) => {
+    const feature = new Feature({
+      geometry: new Point(fromLonLat([lon, lat])),
+      name: "distancePin",
+      type: "distancePin",
+    });
+
+    feature.setStyle(
+      new Style({
+        image: new Icon({
+          src: "/pin.png",
+          scale: 0.1,
+        }),
+      })
+    );
+
+    vectorSource.addFeature(feature);
+  };
+
+  const removePin = () => {
+    vectorSource.getFeatures().forEach((feature) => {
+      if (feature.get("type") === "distancePin") {
+        vectorSource.removeFeature(feature);
+      }
+    });
   };
 
   const addLocation = async (name, type, lat, lon) => {
@@ -200,19 +245,26 @@ const OpenLayersMap = () => {
   };
 
   const fetchNearestPlace = async (lat, lon) => {
-    const response = await axios.get(
-      `${API_URL}/places/nearest?latitude=${lat}&longitude=${lon}`
-    );
-    setNearestData(response.data);
-    if (response && response.data && response.status == 200) {
-      setIsShowDataModalOpen(true);
-      pinLocation(
-        response.data.name,
-        response.data.type,
-        response.data.latitude,
-        response.data.longitude
+    try {
+      const response = await axios.get(
+        `${API_URL}/places/nearest?latitude=${lat}&longitude=${lon}`
       );
-    } else notify("Failed to get nearest place data");
+      if (response.status === 200 && response.data) {
+        setNearestData(response.data);
+        setIsShowDataModalOpen(true);
+        pinLocation(
+          response.data.name,
+          response.data.type,
+          response.data.latitude,
+          response.data.longitude
+        );
+      } else {
+        notify("Failed to get nearest place data");
+      }
+    } catch (error) {
+      console.error("Error fetching nearest place:", error);
+      notify("Error fetching nearest place. Please try again.");
+    }
   };
 
   const calculateDistance = async (lat1, lon1, lat2, lon2) => {
@@ -239,6 +291,7 @@ const OpenLayersMap = () => {
     setNearbyData([]);
     setNearestData({});
     settoTalDistance("");
+    removePin();
   };
 
   function metersToKilometers(meters) {
@@ -252,7 +305,7 @@ const OpenLayersMap = () => {
           PROJECT GIS
         </h1>
 
-        <div className="w-full flex justify-center my-4">
+        <div className="w-full flex md:flex-row flex-col justify-center my-4">
           <ul className=" gap-1 flex justfy-between">
             <li onClick={() => handleButtonClick("add")}>
               <input
