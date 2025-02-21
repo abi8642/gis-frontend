@@ -32,6 +32,7 @@ const OpenLayersMap = () => {
   const [totalDistance, settoTalDistance] = useState("");
   const [showNearbyDate, setShowNearbyData] = useState(false);
   const [messageShown, setMessageShown] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const notify = (msg) => toast(msg);
 
@@ -107,33 +108,17 @@ const OpenLayersMap = () => {
     setRadius(event.target.value);
   };
 
-  // const handleButtonClick = async (actionName) => {
-  //   if (actionName == "add") {
-  //     setClickedButton("add");
-  //     setSelectedPoints([]);
-  //   } else if (actionName == "nearby") {
-  //     setClickedButton("nearby");
-  //     setSelectedPoints([]);
-  //   } else if (actionName == "nearest") {
-  //     setClickedButton("nearest");
-  //     setSelectedPoints([]);
-  //   } else if (actionName == "distance") {
-  //     setClickedButton("distance");
-  //     setSelectedPoints([]);
-  //     notify("Click on the map for select the first point");
-  //   }
-  // };
   const handleButtonClick = async (actionName) => {
+    setSelectedPoints([]);
+    removeAllPins();
     if (
       actionName === "add" ||
       actionName === "nearby" ||
       actionName === "nearest"
     ) {
       setClickedButton(actionName);
-      setSelectedPoints([]);
     } else if (actionName === "distance") {
       setClickedButton("distance");
-      setSelectedPoints([]);
       if (!messageShown) {
         notify("Click on the map for select the first point");
         setMessageShown(true);
@@ -217,7 +202,11 @@ const OpenLayersMap = () => {
     vectorSource.addFeature(feature);
   };
 
-  const removePin = () => {
+  const removeAllPins = () => {
+    vectorSource.clear();
+  };
+
+  const removeLocationPins = () => {
     vectorSource.getFeatures().forEach((feature) => {
       if (feature.get("type") === "distancePin") {
         vectorSource.removeFeature(feature);
@@ -226,44 +215,61 @@ const OpenLayersMap = () => {
   };
 
   const addLocation = async (name, type, lat, lon) => {
-    const response = await axios.post(`${API_URL}/places`, {
-      name,
-      type,
-      latitude: lat,
-      longitude: lon,
-    });
+    try {
+      setLoading(true);
+      const response = await axios.post(`${API_URL}/places`, {
+        name,
+        type,
+        latitude: lat,
+        longitude: lon,
+      });
 
-    if (
-      response &&
-      response.data &&
-      response.data.id &&
-      response.status == 201
-    ) {
-      notify("New place created successfully");
-      setIsShowDataModalOpen(false);
-      setPlaceName("");
-      setPlaceType("");
-    } else {
-      notify("Failed to create place");
+      if (
+        response &&
+        response.data &&
+        response.data.id &&
+        response.status == 201
+      ) {
+        notify("New place created successfully");
+        setIsShowDataModalOpen(false);
+        setPlaceName("");
+        setPlaceType("");
+      } else {
+        notify("Failed to create place");
+      }
+    } catch (error) {
+      console.error("Error adding new place:", error);
+      notify("Error adding new place. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
   const fetchNearbyPlaces = async (lat, lon) => {
-    const response = await axios.get(
-      `${API_URL}/places/nearby?latitude=${lat}&longitude=${lon}&radius=${
-        radius * 1000
-      }`
-    );
-    setNearbyData(response.data);
-    setShowNearbyData(true);
-    notify(`Found ${response.data.length} nearby places`);
-    response.data.forEach((place) =>
-      pinLocation(place.name, place.type, place.latitude, place.longitude)
-    );
+    try {
+      setLoading(true);
+      const response = await axios.get(
+        `${API_URL}/places/nearby?latitude=${lat}&longitude=${lon}&radius=${
+          radius * 1000
+        }`
+      );
+      setNearbyData(response.data);
+      setShowNearbyData(true);
+      notify(`Found ${response.data.length} nearby places`);
+      response.data.forEach((place) =>
+        pinLocation(place.name, place.type, place.latitude, place.longitude)
+      );
+    } catch (error) {
+      console.error("Error fetching nearby place:", error);
+      notify("Error fetching nearby place. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fetchNearestPlace = async (lat, lon) => {
     try {
+      setLoading(true);
       const response = await axios.get(
         `${API_URL}/places/nearest?latitude=${lat}&longitude=${lon}`
       );
@@ -282,22 +288,29 @@ const OpenLayersMap = () => {
     } catch (error) {
       console.error("Error fetching nearest place:", error);
       notify("Error fetching nearest place. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
   const calculateDistance = async (lat1, lon1, lat2, lon2) => {
-    const response = await axios.get(
-      `${API_URL}/places/distance?lat1=${lat1}&lon1=${lon1}&lat2=${lat2}&lon2=${lon2}`
-    );
-    settoTalDistance(response.data.distance);
-    if (
-      response &&
-      response.data &&
-      response.data.distance &&
-      response.status == 200
-    )
-      setIsShowDataModalOpen(true);
-    else notify("Failed to get distance");
+    try {
+      const response = await axios.get(
+        `${API_URL}/places/distance?lat1=${lat1}&lon1=${lon1}&lat2=${lat2}&lon2=${lon2}`
+      );
+      settoTalDistance(response.data.distance);
+      if (
+        response &&
+        response.data &&
+        response.data.distance &&
+        response.status == 200
+      )
+        setIsShowDataModalOpen(true);
+      else notify("Failed to get distance");
+    } catch (error) {
+      console.error("Error calculating distance:", error);
+      notify("Error calculating distance. Please try again.");
+    }
   };
 
   const closeModal = () => {
@@ -309,7 +322,7 @@ const OpenLayersMap = () => {
     setNearbyData([]);
     setNearestData({});
     settoTalDistance("");
-    removePin();
+    removeLocationPins();
   };
 
   function metersToKilometers(meters) {
@@ -406,6 +419,14 @@ const OpenLayersMap = () => {
           </div>
         </div>
       </div>
+
+      {loading && (
+        <div className="fixed inset-0 bg-white bg-opacity-50 flex justify-center items-center z-[9999]">
+          <div className="flex justify-center items-center h-16">
+            <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-blue-500"></div>
+          </div>
+        </div>
+      )}
 
       {isShowDataModalOpen && (
         <div
