@@ -26,19 +26,20 @@ const OpenLayersMap = () => {
   const [placeType, setPlaceType] = useState("");
   const [radius, setRadius] = useState("");
   const [isShowDataModalOpen, setIsShowDataModalOpen] = useState(false);
-  const [clickedButton, setClickedButton] = useState("nearby");
+  const [clickedButton, setClickedButton] = useState("add");
   const [nearbyData, setNearbyData] = useState([]);
   const [nearestData, setNearestData] = useState({});
   const [totalDistance, settoTalDistance] = useState("");
   const [showNearbyDate, setShowNearbyData] = useState(false);
+  const [messageShown, setMessageShown] = useState(false);
 
   const notify = (msg) => toast(msg);
 
   useEffect(() => {
-    if (!mapRef.current) return;
+    if (!mapRef?.current) return;
 
     const initialMap = new Map({
-      target: mapRef.current,
+      target: mapRef?.current,
       layers: [
         new TileLayer({
           source: new OSM(),
@@ -60,17 +61,17 @@ const OpenLayersMap = () => {
       const lonLat = toLonLat(coordinate);
       setSelectedCoordinate(lonLat);
 
-      if (clickedButtonRef.current === "add") {
+      if (clickedButtonRef?.current === "add") {
         setIsShowDataModalOpen(true);
-      } else if (clickedButtonRef.current === "nearby") {
+      } else if (clickedButtonRef?.current === "nearby") {
         setIsShowDataModalOpen(true);
-      } else if (clickedButtonRef.current === "nearest") {
+      } else if (clickedButtonRef?.current === "nearest") {
         await fetchNearestPlace(lonLat[1], lonLat[0]);
-      } else if (clickedButtonRef.current === "distance") {
+      } else if (clickedButtonRef?.current === "distance") {
         pinLocationWithImage(lonLat[1], lonLat[0]);
         setSelectedPoints((prevPoints) => {
           const newPoints = [...prevPoints, lonLat];
-          if (newPoints.length == 1)
+          if (newPoints?.length == 1)
             notify("Click on the map for select the second point");
 
           if (newPoints.length === 2) {
@@ -106,20 +107,37 @@ const OpenLayersMap = () => {
     setRadius(event.target.value);
   };
 
+  // const handleButtonClick = async (actionName) => {
+  //   if (actionName == "add") {
+  //     setClickedButton("add");
+  //     setSelectedPoints([]);
+  //   } else if (actionName == "nearby") {
+  //     setClickedButton("nearby");
+  //     setSelectedPoints([]);
+  //   } else if (actionName == "nearest") {
+  //     setClickedButton("nearest");
+  //     setSelectedPoints([]);
+  //   } else if (actionName == "distance") {
+  //     setClickedButton("distance");
+  //     setSelectedPoints([]);
+  //     notify("Click on the map for select the first point");
+  //   }
+  // };
   const handleButtonClick = async (actionName) => {
-    if (actionName == "add") {
-      setClickedButton("add");
+    if (
+      actionName === "add" ||
+      actionName === "nearby" ||
+      actionName === "nearest"
+    ) {
+      setClickedButton(actionName);
       setSelectedPoints([]);
-    } else if (actionName == "nearby") {
-      setClickedButton("nearby");
-      setSelectedPoints([]);
-    } else if (actionName == "nearest") {
-      setClickedButton("nearest");
-      setSelectedPoints([]);
-    } else if (actionName == "distance") {
+    } else if (actionName === "distance") {
       setClickedButton("distance");
       setSelectedPoints([]);
-      notify("Click on the map for select the first point");
+      if (!messageShown) {
+        notify("Click on the map for select the first point");
+        setMessageShown(true);
+      }
     }
   };
 
@@ -305,8 +323,8 @@ const OpenLayersMap = () => {
           PROJECT GIS
         </h1>
 
-        <div className="w-full flex md:flex-row flex-col justify-center my-4">
-          <ul className=" gap-1 flex justfy-between">
+        <div className="w-full flex  justify-center my-4">
+          <ul className=" gap-1 flex md:flex-row flex-col justify-between">
             <li onClick={() => handleButtonClick("add")}>
               <input
                 type="radio"
@@ -382,8 +400,11 @@ const OpenLayersMap = () => {
             </li>
           </ul>
         </div>
-
-        <div ref={mapRef} className="w-[100%] h-[60vh]"></div>
+        <div class="rounded overflow-hidden shadow-lg w-[100%] h-[80vh] p-2 ">
+          <div class="p-6 shadow dark:bg-gray-800 rounded-xs rounded-lg rounded-md">
+            <div ref={mapRef} className="w-[100%] h-[60vh]"></div>
+          </div>
+        </div>
       </div>
 
       {isShowDataModalOpen && (
@@ -391,7 +412,7 @@ const OpenLayersMap = () => {
           id="authentication-modal"
           className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
         >
-          <div className="bg-white rounded-lg shadow-lg min-w-96  max-h-[80vh]">
+          <div className="bg-white rounded-lg shadow-lg  max-h-[80vh] px-4 max-w-[70%] mx-2 sm:max-w-[50%]">
             <div className="flex items-center justify-between p-4 border-b">
               <h3 className="text-xl font-semibold">
                 {clickedButton == "add"
