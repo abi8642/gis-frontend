@@ -400,8 +400,8 @@ const OpenLayersMap = () => {
             </li>
           </ul>
         </div>
-        <div class="rounded overflow-hidden shadow-lg w-[100%] h-[80vh] p-2 ">
-          <div class="p-6 shadow dark:bg-gray-800 rounded-xs rounded-lg rounded-md">
+        <div className="rounded overflow-hidden shadow-lg w-[100%] h-[80vh] p-2 ">
+          <div className="p-6 shadow dark:bg-gray-800 rounded-xs rounded-lg rounded-md">
             <div ref={mapRef} className="w-[100%] h-[60vh]"></div>
           </div>
         </div>
